@@ -47,12 +47,8 @@ Handle hOnClientEntry = INVALID_HANDLE;
 Handle hOnClientLeave = INVALID_HANDLE;
 
 
-enum g_eList {
-	String:liName[64], 
-	bool:liThis
-};
-
-int g_iZones[2048][MAX_ZONES][g_eList]; // max zones = 256
+char g_liName[2048][MAX_ZONES][64]; // max zones = 256
+bool g_liThis[2048][MAX_ZONES]; // max zones = 256
 
 
 // cvars
@@ -109,7 +105,7 @@ public void OnPluginEnd()
 
 public void resetClient(int client) {
 	for (int i = 0; i < MAX_ZONES; i++)
-	g_iZones[client][i][liThis] = false;
+	g_liThis[client][i] = false;
 }
 
 public void CVarChange(Handle convar_hndl, const char[] oldValue, const char[] newValue) {
@@ -215,8 +211,8 @@ public void EntOut_OnStartTouch(const char[] output, int caller, int activator, 
 	char nBuf[64];
 	Entity_GetGlobalName(caller, nBuf, sizeof(nBuf));
 	int callerId = StringToInt(nBuf);
-	g_iZones[activator][callerId][liThis] = true;
-	Format(g_iZones[activator][callerId][liName], 64, sTargetName);
+	g_liThis[activator][callerId] = true;
+	Format(g_liName[activator][callerId], 64, sTargetName);
 	//PrintToChatAll("E::%i::%s::", callerId, sTargetName);
 	Call_StartForward(hOnClientEntry);
 	Call_PushCell(activator);
@@ -239,8 +235,8 @@ public void EntOut_OnEndTouch(const char[] output, int caller, int activator, fl
 	char nBuf[64];
 	Entity_GetGlobalName(caller, nBuf, sizeof(nBuf));
 	int callerId = StringToInt(nBuf);
-	g_iZones[activator][callerId][liThis] = false;
-	Format(g_iZones[activator][callerId][liName], 64, "");
+	g_liThis[activator][callerId] = false;
+	Format(g_liName[activator][callerId], 64, "");
 	//PrintToChatAll("EX::%i::%s::", callerId, sTargetName);
 	Call_StartForward(hOnClientLeave);
 	Call_PushCell(activator);
@@ -483,12 +479,12 @@ public int Native_InZone(Handle plugin, int argc) {
 	{
 		if (same)
 		{
-			if (StrEqual(g_iZones[client][i][liName], name, sensitive) && g_iZones[client][i][liThis])
+			if (StrEqual(g_liName[client][i], name, sensitive) && g_liThis[client][i])
 				return true;
 		}
 		else
 		{
-			if (StrContains(g_iZones[client][i][liName], name, sensitive) == 0 && g_iZones[client][i][liThis])
+			if (StrContains(g_liName[client][i], name, sensitive) == 0 && g_liThis[client][i])
 				return true;
 		}
 		
@@ -501,8 +497,8 @@ public int Native_getMostRecentActiveZone(Handle plugin, int argc) {
 	
 	int size = GetArraySize(g_Zones);
 	for (int i = 0; i < size; ++i) {
-		if (g_iZones[client][i][liThis]) {
-			SetNativeString(2, g_iZones[client][i][liName], 64);
+		if (g_liThis[client][i]) {
+			SetNativeString(2, g_liName[client][i], 64);
 			return true;
 		}
 	}
@@ -530,9 +526,9 @@ public int Native_Teleport(Handle plugin, int argc) {
 				GetTrieArray(GetArrayCell(g_Zones, i), "cordb", posB, sizeof(posB));
 				float ZonePos[3];
 				AddVectors(posA, posB, ZonePos);
-				ZonePos[0] = FloatDiv(ZonePos[0], 2.0);
-				ZonePos[1] = FloatDiv(ZonePos[1], 2.0);
-				ZonePos[2] = FloatDiv(ZonePos[2], 2.0);
+				ZonePos[0] = ZonePos[0] / 2.0;
+				ZonePos[1] = ZonePos[1] / 2.0;
+				ZonePos[2] = ZonePos[2] / 2.0;
 				SetNativeArray(3, ZonePos, 3);
 				return true;
 			}
@@ -640,27 +636,27 @@ public Action BeamBoxAll(Handle timer, any data) {
 				{
 					if (IsbetweenRect(NULL_VECTOR, posA, posB, p))
 					{
-						if (!g_iZones[p][i][liThis])
+						if (!g_liThis[p][i])
 						{
 							// entra
-							g_iZones[p][i][liThis] = true;
-							Format(g_iZones[p][i][liName], 64, nombre);
+							g_liThis[p][i] = true;
+							Format(g_liName[p][i], 64, nombre);
 							Call_StartForward(hOnClientEntry);
 							Call_PushCell(p);
-							Call_PushString(g_iZones[p][i][liName]);
+							Call_PushString(g_liName[p][i]);
 							Call_Finish();
 						}
 					}
 					else
 					{
-						if (g_iZones[p][i][liThis])
+						if (g_liThis[p][i])
 						{
 							// sale
-							g_iZones[p][i][liThis] = false;
-							Format(g_iZones[p][i][liName], 64, nombre);
+							g_liThis[p][i] = false;
+							Format(g_liName[p][i], 64, nombre);
 							Call_StartForward(hOnClientLeave);
 							Call_PushCell(p);
-							Call_PushString(g_iZones[p][i][liName]);
+							Call_PushString(g_liName[p][i]);
 							Call_Finish();
 						}
 					}
@@ -757,7 +753,7 @@ public bool IsbetweenRect(float Pos[3], float Corner1[3], float Corner2[3], int 
 	else
 		GetClientAbsOrigin(client, Entity);
 	
-	Entity[2] = FloatAdd(Entity[2], 25.0);
+	Entity[2] = Entity[2] + 25.0;
 	
 	// Sort Floats... 
 	if (FloatCompare(Corner1[0], Corner2[0]) == -1)
@@ -1079,9 +1075,9 @@ public int MenuHandler_Editor(Handle tMenu, MenuAction action, int client, int i
 					// Teleport
 					float ZonePos[3];
 					AddVectors(g_Positions[client][0], g_Positions[client][1], ZonePos);
-					ZonePos[0] = FloatDiv(ZonePos[0], 2.0);
-					ZonePos[1] = FloatDiv(ZonePos[1], 2.0);
-					ZonePos[2] = FloatDiv(ZonePos[2], 2.0);
+					ZonePos[0] = ZonePos[0] / 2.0;
+					ZonePos[1] = ZonePos[1] / 2.0;
+					ZonePos[2] = ZonePos[2] / 2.0;
 					TeleportEntity(client, ZonePos, NULL_VECTOR, NULL_VECTOR);
 					EditorMenu(client);
 					PrintToChat(client, "You are teleported to the zone");
@@ -1171,27 +1167,27 @@ public int MenuHandler_Scale(Handle tMenu, MenuAction action, int client, int it
 				}
 				case 1:
 				{
-					g_Positions[client][g_ClientSelectedPoint[client]][0] = FloatAdd(g_Positions[client][g_ClientSelectedPoint[client]][0], g_AvaliableScales[g_ClientSelectedScale[client]]);
+					g_Positions[client][g_ClientSelectedPoint[client]][0] = g_Positions[client][g_ClientSelectedPoint[client]][0] + g_AvaliableScales[g_ClientSelectedScale[client]];
 				}
 				case 2:
 				{
-					g_Positions[client][g_ClientSelectedPoint[client]][0] = FloatSub(g_Positions[client][g_ClientSelectedPoint[client]][0], g_AvaliableScales[g_ClientSelectedScale[client]]);
+					g_Positions[client][g_ClientSelectedPoint[client]][0] = g_Positions[client][g_ClientSelectedPoint[client]][0] - g_AvaliableScales[g_ClientSelectedScale[client]];
 				}
 				case 3:
 				{
-					g_Positions[client][g_ClientSelectedPoint[client]][1] = FloatAdd(g_Positions[client][g_ClientSelectedPoint[client]][1], g_AvaliableScales[g_ClientSelectedScale[client]]);
+					g_Positions[client][g_ClientSelectedPoint[client]][1] = g_Positions[client][g_ClientSelectedPoint[client]][1] + g_AvaliableScales[g_ClientSelectedScale[client]];
 				}
 				case 4:
 				{
-					g_Positions[client][g_ClientSelectedPoint[client]][1] = FloatSub(g_Positions[client][g_ClientSelectedPoint[client]][1], g_AvaliableScales[g_ClientSelectedScale[client]]);
+					g_Positions[client][g_ClientSelectedPoint[client]][1] = g_Positions[client][g_ClientSelectedPoint[client]][1] - g_AvaliableScales[g_ClientSelectedScale[client]];
 				}
 				case 5:
 				{
-					g_Positions[client][g_ClientSelectedPoint[client]][2] = FloatAdd(g_Positions[client][g_ClientSelectedPoint[client]][2], g_AvaliableScales[g_ClientSelectedScale[client]]);
+					g_Positions[client][g_ClientSelectedPoint[client]][2] = g_Positions[client][g_ClientSelectedPoint[client]][2] + g_AvaliableScales[g_ClientSelectedScale[client]];
 				}
 				case 6:
 				{
-					g_Positions[client][g_ClientSelectedPoint[client]][2] = FloatSub(g_Positions[client][g_ClientSelectedPoint[client]][2], g_AvaliableScales[g_ClientSelectedScale[client]]);
+					g_Positions[client][g_ClientSelectedPoint[client]][2] = g_Positions[client][g_ClientSelectedPoint[client]][2] - g_AvaliableScales[g_ClientSelectedScale[client]];
 				}
 				case 7:
 				{
