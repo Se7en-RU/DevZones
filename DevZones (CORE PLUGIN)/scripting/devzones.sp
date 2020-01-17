@@ -20,7 +20,7 @@
 #include <sdktools>
 
 
-#define VERSION "3.2"
+#define VERSION "3.3.2"
 #pragma newdecls required
 
 #define MAX_ZONES 256
@@ -86,6 +86,7 @@ public void OnPluginStart() {
 	RegAdminCmd("sm_zones", Command_CampZones, ADMFLAG_CUSTOM6);
 	RegConsoleCmd("say", fnHookSay);
 	HookEventEx("round_start", Event_OnRoundStart);
+	HookEventEx("player_spawn", Event_PlayerSpawn, EventHookMode_Pre);
 	HookEventEx("teamplay_round_start", Event_OnRoundStart);
 	//HookEvent("round_start", OnRoundStart);
 	
@@ -96,6 +97,20 @@ public void OnPluginStart() {
 	HookConVarChange(cvar_mode, CVarChange);
 	HookConVarChange(cvar_model, CVarChange);
 	
+}
+
+// fixes for Zone_IsClientInZone native
+public Action Event_PlayerSpawn(Event event, const char[] name, bool dontBroadcast)
+{
+	int client = GetClientOfUserId(GetEventInt(event, "userid"));
+	resetClient(client);
+}
+
+public void OnEntityDestroyed(int entity)
+{
+	if (entity < 0 || entity > 2048) return;
+
+	resetClient(entity);
 }
 
 public void OnPluginEnd()
